@@ -75,6 +75,7 @@ import java.util.function.Consumer;
 import jdk.internal.access.JavaNioAccess;
 import jdk.internal.access.SharedSecrets;
 import jdk.internal.ref.CleanerFactory;
+import jdk.internal.util.OperatingSystem;
 import sun.net.ResourceManager;
 import sun.net.ext.ExtendedSocketOptions;
 import sun.net.util.IPAddressUtil;
@@ -374,7 +375,17 @@ class DatagramChannelImpl
             if (name == StandardSocketOptions.IP_MULTICAST_IF) {
                 assert family != Net.UNSPEC;
                 NetworkInterface interf = (NetworkInterface) value;
-                if (family == StandardProtocolFamily.INET6) {
+                boolean canSetIPv6Option = true;
+                if (OperatingSystem.isAix() || OperatingSystem.isWindows()) {
+                    canSetIPv6Option = false;
+                    for (var addr : interf.getInterfaceAddresses()) {
+                        if (addr.getAddress() instanceof Inet6Address) {
+                            canSetIPv6Option = true;
+                            break;
+                        }
+                    }
+                }
+                if (family == StandardProtocolFamily.INET6 && canSetIPv6Option) {
                     int index = interf.getIndex();
                     if (index == -1)
                         throw new IOException("Network interface cannot be identified");
