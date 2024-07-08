@@ -629,10 +629,15 @@ public class DatagramSocketAdaptor
      */
     private NetworkInterface defaultNetworkInterface() throws SocketException {
         NetworkInterface ni = outgoingNetworkInterface();
-        if (ni == null)
+        System.out.println("outgoingNetworkInterface:" + ni);
+        if (ni == null) {
             ni = NetworkInterfaces.getDefault();   // macOS
-        if (ni == null)
+            System.out.println("nigetdefault:" + ni);
+        }
+        if (ni == null) {
             ni = anyNetworkInterface();
+            System.out.println("anygesicht:" + ni);
+        }
         return ni;
     }
 

@@ -75,6 +75,7 @@ import java.util.function.Consumer;
 import jdk.internal.access.JavaNioAccess;
 import jdk.internal.access.SharedSecrets;
 import jdk.internal.ref.CleanerFactory;
+import jdk.internal.util.OperatingSystem;
 import sun.net.ResourceManager;
 import sun.net.ext.ExtendedSocketOptions;
 import sun.net.util.IPAddressUtil;
@@ -374,7 +375,19 @@ class DatagramChannelImpl
             if (name == StandardSocketOptions.IP_MULTICAST_IF) {
                 assert family != Net.UNSPEC;
                 NetworkInterface interf = (NetworkInterface) value;
-                if (family == StandardProtocolFamily.INET6) {
+                boolean canSetIPv6Option = true;
+                if (OperatingSystem.isAix() || OperatingSystem.isWindows()) {
+                    canSetIPv6Option = false;
+                    for (var addr : interf.getInterfaceAddresses()) {
+                        if (addr.getAddress() instanceof Inet6Address) {
+                            canSetIPv6Option = true;
+                            break;
+                        }
+                    }
+                }
+                System.out.println("canSetIPv6Option: " + canSetIPv6Option + ", needToSetIPv4Option: " + needToSetIPv4Option);
+                if (family == StandardProtocolFamily.INET6 && canSetIPv6Option) {
+                    System.out.println("Setting IPv6Option.");
                     int index = interf.getIndex();
                     if (index == -1)
                         throw new IOException("Network interface cannot be identified");
@@ -383,6 +396,7 @@ class DatagramChannelImpl
                 if (family == StandardProtocolFamily.INET || needToSetIPv4Option) {
                     // need IPv4 address to identify interface
                     Inet4Address target = Net.anyInet4Address(interf);
+                    System.out.println("Setting IPv4Option on " + target + ".");
                     if (target != null) {
                         try {
                             Net.setInterface4(fd, Net.inet4AsInt(target));
@@ -1659,10 +1673,28 @@ class DatagramChannelImpl
                     return key;
             }
 
+            /*
+            boolean canJoin6WithIPv4Group = false;
+            if (OperatingSystem.isAix()) {
+                if (interf.getIndex() == 0) {
+                    canJoin6WithIPv4Group = true;
+                } else {
+                    for (var addr : interf.getInterfaceAddresses()) {
+                        if (addr.getAddress() instanceof Inet6Address) {
+                            canJoin6WithIPv4Group = true;
+                            break;
+                        }
+                    }
+                }
+            } else {
+                canJoin6WithIPv4Group = Net.canJoin6WithIPv4Group();
+            } */
+
             MembershipKeyImpl key;
             if ((family == StandardProtocolFamily.INET6) &&
                 ((group instanceof Inet6Address) || Net.canJoin6WithIPv4Group()))
             {
+                System.out.println("Joining with IPv6 call");
                 int index = interf.getIndex();
                 if (index == -1)
                     throw new IOException("Network interface cannot be identified");
@@ -1685,6 +1717,8 @@ class DatagramChannelImpl
                 Inet4Address target = Net.anyInet4Address(interf);
                 if (target == null)
                     throw new IOException("Network interface not configured for IPv4");
+
+                System.out.println("Joining with IPv4 call on interface " + interf + ", group: " + group + ", target: " + target + ", source: " + source);
 
                 int groupAddress = Net.inet4AsInt(group);
                 int targetAddress = Net.inet4AsInt(target);

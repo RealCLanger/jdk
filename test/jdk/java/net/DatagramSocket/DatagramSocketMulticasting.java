@@ -81,6 +81,13 @@ public class DatagramSocketMulticasting {
         InetAddress ip6Group = InetAddress.getByName("ff02::a");
 
         for (NetworkInterface ni : ip4MulticastInterfaces) {
+            System.out.println("IPv4Interface: " + ni);
+        }
+        for (NetworkInterface ni : ip6MulticastInterfaces) {
+            System.out.println("IPv6Interface: " + ni);
+        }
+
+        for (NetworkInterface ni : ip4MulticastInterfaces) {
             test(INET, ip4Group, ni);
             if (IPSupport.hasIPv6()) {
                 test(UNSPEC, ip4Group, ni);
